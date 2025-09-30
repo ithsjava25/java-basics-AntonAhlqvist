@@ -26,47 +26,54 @@ public class Main {
     public static void main(String[] args) {
 
         ElpriserAPI api = new ElpriserAPI();
-        LocalDate idag = LocalDate.now();
 
         if (args.length == 0 || args[0].equals("--help")) {
             help();
 
-        } else if (args.length == 2 && args[0].equals("--zone") && args[1].equals("SE1")) {
+        } else if (args.length == 4 && args[0].equals("--zone") && args[1].equals("SE1") && args[2].equals("--date")) {
 
-            List<Elpris> priser = api.getPriser(idag, Prisklass.SE1);
+            LocalDate datum = LocalDate.parse(args[3]);
 
-            System.out.println("Priserna för zon 1:\n");
+            List<Elpris> priser = api.getPriser(datum, Prisklass.SE1);
 
-            for (int i = 0; i < priser.size(); i++) {
-                Elpris pris = priser.get(i);
-                System.out.println(pris.timeStart().toLocalTime() + " - " + pris.sekPerKWh() + " sek/KWh");
-            }
-
-        } else if (args.length == 2 && args[0].equals("--zone") && args[1].equals("SE2")) {
-
-            List<Elpris> priser = api.getPriser(idag, Prisklass.SE2);
-
-            System.out.println("Priserna för zon 2:\n");
+            System.out.println("Priserna för zon 1 den: " + datum + "\n");
 
             for (int i = 0; i < priser.size(); i++) {
                 Elpris pris = priser.get(i);
                 System.out.println(pris.timeStart().toLocalTime() + " - " + pris.sekPerKWh() + " sek/KWh");
             }
-        } else if (args.length == 2 && args[0].equals("--zone") && args[1].equals("SE3")) {
 
-            List<Elpris> priser = api.getPriser(idag, Prisklass.SE3);
+        } else if (args.length == 4 && args[0].equals("--zone") && args[1].equals("SE2") && args[2].equals("--date")) {
 
-            System.out.println("Priserna för zon 3:\n");
+            LocalDate datum = LocalDate.parse(args[3]);
+
+            List<Elpris> priser = api.getPriser(datum, Prisklass.SE2);
+
+            System.out.println("Priserna för zon 2 den: \n" + datum + "\n");
 
             for (int i = 0; i < priser.size(); i++) {
                 Elpris pris = priser.get(i);
                 System.out.println(pris.timeStart().toLocalTime() + " - " + pris.sekPerKWh() + " sek/KWh");
             }
-        } else if (args.length == 2 && args[0].equals("--zone") && args[1].equals("SE4")) {
+        } else if (args.length == 4 && args[0].equals("--zone") && args[1].equals("SE3") && args[2].equals("--date")) {
 
-            List<Elpris> priser = api.getPriser(idag, Prisklass.SE4);
+            LocalDate datum = LocalDate.parse(args[3]);
 
-            System.out.println("Priserna för zon 4:\n");
+            List<Elpris> priser = api.getPriser(datum, Prisklass.SE3);
+
+            System.out.println("Priserna för zon 3: " + datum);
+
+            for (int i = 0; i < priser.size(); i++) {
+                Elpris pris = priser.get(i);
+                System.out.println(pris.timeStart().toLocalTime() + " - " + pris.sekPerKWh() + " sek/KWh");
+            }
+        } else if (args.length == 4 && args[0].equals("--zone") && args[1].equals("SE4") && args[2].equals("--date")) {
+
+            LocalDate datum = LocalDate.parse(args[3]);
+
+            List<Elpris> priser = api.getPriser(datum, Prisklass.SE4);
+
+            System.out.println("Priserna för zon 4: " + datum);
 
             for (int i = 0; i < priser.size(); i++) {
                 Elpris pris = priser.get(i);
