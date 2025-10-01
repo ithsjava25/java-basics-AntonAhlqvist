@@ -4,7 +4,9 @@ import com.example.api.ElpriserAPI;
 import com.example.api.ElpriserAPI.Elpris;
 import com.example.api.ElpriserAPI.Prisklass;
 
+import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.List;
 
 public class Main {
@@ -26,6 +28,16 @@ public class Main {
         public void setCharging(String charging) { this.charging = charging; }
     }
 
+    public static void printHelpInfo() {
+        System.out.println("Usage: java -cp target/classes com.example.Main [options]");
+        System.out.println("Options:");
+        System.out.println("--zone: 'SE1', 'SE2', 'SE3', 'SE4'.   (Required.)");
+        System.out.println("--date: YYYY-MM-DD.                   (Optional. Today is default.)");
+        System.out.println("--sorted:                             (Optional. Sorts prices descending.");
+        System.out.println("--charging: '2h', '4h', '8h'.         (Optional. Finds optimal charging period.");
+        System.out.println("--help:                               (Optional. Shows this help message.");
+    }
+
     private static ArgsResult readArguments(String[] args) {
         ArgsResult result = new ArgsResult();
 
@@ -45,6 +57,10 @@ public class Main {
     }
 
     public static void main(String[] args) {
+
+        if (args.length == 1 && args[0].equals("--help")) {
+            printHelpInfo();
+        }
 
         ElpriserAPI elpriserAPI = new ElpriserAPI();
 
