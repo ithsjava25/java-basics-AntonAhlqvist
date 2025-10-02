@@ -8,6 +8,7 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.List;
+import java.util.ArrayList;
 
 public class Main {
 
@@ -64,6 +65,24 @@ public class Main {
         return nf.format(sekPerKWh * 100) + " öre";
     }
 
+    private static List<Double> quarterToHour(List<Elpris> kvartPriser) {
+        List<Double> timPriser = new ArrayList<>();
+        int kvartalPerTimme = 4;
+
+        for (int i = 0; i < kvartPriser.size(); i += kvartalPerTimme) {
+            double sumForCurrentHour = 0;
+
+            for (int j = 0; j < kvartalPerTimme; j++) {
+                sumForCurrentHour += kvartPriser.get(i + j).sekPerKWh();
+            }
+
+            double currentHourPrice = sumForCurrentHour / kvartalPerTimme;
+            timPriser.add(currentHourPrice);
+        }
+
+        return timPriser;
+    }
+
     public static void main(String[] args) {
 
         ElpriserAPI elpriserAPI = new ElpriserAPI();
@@ -83,20 +102,15 @@ public class Main {
             currentArgs.setDate(LocalDate.now().toString());
         }
 
-        if (currentArgs.getZone() != null && currentArgs.getDate() != null) {
+        LocalDate selectedDate = LocalDate.parse(currentArgs.getDate());
+        Prisklass selectedZone = Prisklass.valueOf(currentArgs.getZone());
 
-            LocalDate selectedDate = LocalDate.parse(currentArgs.getDate());
-            Prisklass selectedZone = Prisklass.valueOf(currentArgs.getZone());
+        List<Elpris> kvartPriser = elpriserAPI.getPriser(selectedDate, selectedZone);
+        List<Double> timPriser = quarterToHour(kvartPriser);
 
-            List<Elpris> prices = elpriserAPI.getPriser(selectedDate, selectedZone);
-
-            System.out.println("\nPriser för zon " + currentArgs.getZone() + " den " + selectedDate + ":\n");
-            for (int i = 0; i < prices.size(); i++) {
-                Elpris price = prices.get(i);
-                String startTime = price.timeStart().toLocalTime().toString();
-                System.out.println(startTime + " - " + formatPrice(price.sekPerKWh()));
-
-            }
+        System.out.println("\nTimpriser för zon " + currentArgs.getZone() + " den " + selectedDate + ":\n");
+        for (int hourIndex = 0; hourIndex < timPriser.size(); hourIndex++) {
+            System.out.println("Timme " + (hourIndex + 1) + ": " + formatPrice(timPriser.get(hourIndex)));
         }
     }
 }
