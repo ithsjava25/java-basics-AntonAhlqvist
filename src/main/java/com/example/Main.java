@@ -6,9 +6,9 @@ import com.example.api.ElpriserAPI.Prisklass;
 
 import java.text.NumberFormat;
 import java.time.LocalDate;
-import java.util.Locale;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class Main {
 
@@ -61,7 +61,6 @@ public class Main {
         NumberFormat nf = NumberFormat.getNumberInstance(new Locale("sv", "SE"));
         nf.setMinimumFractionDigits(2);
         nf.setMaximumFractionDigits(2);
-
         return nf.format(sekPerKWh * 100) + " öre";
     }
 
@@ -71,11 +70,9 @@ public class Main {
 
         for (int i = 0; i < kvartPriser.size(); i += kvartalPerTimme) {
             double sumForCurrentHour = 0;
-
             for (int j = 0; j < kvartalPerTimme; j++) {
                 sumForCurrentHour += kvartPriser.get(i + j).sekPerKWh();
             }
-
             double currentHourPrice = sumForCurrentHour / kvartalPerTimme;
             timPriser.add(currentHourPrice);
         }
@@ -83,12 +80,49 @@ public class Main {
         return timPriser;
     }
 
+    private static void printHourlyStats(List<Double> timPriser) {
+        NumberFormat nf = NumberFormat.getNumberInstance(new Locale("sv", "SE"));
+        nf.setMinimumFractionDigits(2);
+        nf.setMaximumFractionDigits(2);
+
+        double sum = 0;
+        double min = timPriser.get(0);
+        double max = timPriser.get(0);
+        int minHour = 0;
+        int maxHour = 0;
+
+        System.out.println("\nTimpriser:\n");
+        for (int i = 0; i < timPriser.size(); i++) {
+            double price = timPriser.get(i);
+            sum += price;
+
+            if (price < min) {
+                min = price;
+                minHour = i;
+            }
+            if (price > max) {
+                max = price;
+                maxHour = i;
+            }
+
+            String hourInterval = String.format("%02d-%02d", i, i + 1);
+            System.out.println(hourInterval + " " + nf.format(price) + " öre");
+        }
+
+        double average = sum / timPriser.size();
+
+        System.out.println("\n--- Statistik ---");
+        System.out.println("Medelpris: " + nf.format(average) + " öre");
+        System.out.println("Lägsta pris: " + nf.format(min) + " öre (Timme " + (minHour + 1) + ")");
+        System.out.println("Högsta pris: " + nf.format(max) + " öre (Timme " + (maxHour + 1) + ")");
+    }
+
     public static void main(String[] args) {
 
         ElpriserAPI elpriserAPI = new ElpriserAPI();
         ArgsResult currentArgs = readArguments(args);
 
-        if (args.length == 0 || args.length == 1 && args[0].equals("--help")) {
+        if (args.length == 0 || (args.length == 1 && args[0].equals("--help"))) {
             printHelpInfo();
             return;
         }
@@ -109,8 +143,7 @@ public class Main {
         List<Double> timPriser = quarterToHour(kvartPriser);
 
         System.out.println("\nTimpriser för zon " + currentArgs.getZone() + " den " + selectedDate + ":\n");
-        for (int hourIndex = 0; hourIndex < timPriser.size(); hourIndex++) {
-            System.out.println("Timme " + (hourIndex + 1) + ": " + formatPrice(timPriser.get(hourIndex)));
-        }
+
+        printHourlyStats(timPriser);
     }
 }
