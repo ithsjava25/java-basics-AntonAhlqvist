@@ -31,11 +31,11 @@ public class Main {
     public static void printHelpInfo() {
         System.out.println("Usage: java -cp target/classes com.example.Main [options]");
         System.out.println("Options:");
-        System.out.println("--zone: 'SE1', 'SE2', 'SE3', 'SE4'.   (Required.)");
-        System.out.println("--date: YYYY-MM-DD.                   (Optional. Today is default.)");
-        System.out.println("--sorted:                             (Optional. Sorts prices descending.");
-        System.out.println("--charging: '2h', '4h', '8h'.         (Optional. Finds optimal charging period.");
-        System.out.println("--help:                               (Optional. Shows this help message.");
+        System.out.println("--zone SE1|SE2|SE3|SE4   (required)");
+        System.out.println("--date YYYY-MM-DD        (optional, defaults to current date)");
+        System.out.println("--sorted                 (optional, display prices in descending order)");
+        System.out.println("--charging 2h|4h|8h      (optional, find optimal charging period)");
+        System.out.println("--help                   (optional, display this help message)");
     }
 
     private static ArgsResult readArguments(String[] args) {
@@ -56,15 +56,32 @@ public class Main {
         return result;
     }
 
+    private static String formatPrice(double sekPerKWh) {
+        NumberFormat nf = NumberFormat.getNumberInstance(new Locale("sv", "SE"));
+        nf.setMinimumFractionDigits(2);
+        nf.setMaximumFractionDigits(2);
+
+        return nf.format(sekPerKWh * 100) + " öre";
+    }
+
     public static void main(String[] args) {
 
-        if (args.length == 1 && args[0].equals("--help")) {
+        ElpriserAPI elpriserAPI = new ElpriserAPI();
+        ArgsResult currentArgs = readArguments(args);
+
+        if (args.length == 0 || args.length == 1 && args[0].equals("--help")) {
             printHelpInfo();
+            return;
         }
 
-        ElpriserAPI elpriserAPI = new ElpriserAPI();
+        if (currentArgs.getZone() == null) {
+            printHelpInfo();
+            return;
+        }
 
-        ArgsResult currentArgs = readArguments(args);
+        if (currentArgs.getDate() == null) {
+            currentArgs.setDate(LocalDate.now().toString());
+        }
 
         if (currentArgs.getZone() != null && currentArgs.getDate() != null) {
 
@@ -77,8 +94,8 @@ public class Main {
             for (int i = 0; i < prices.size(); i++) {
                 Elpris price = prices.get(i);
                 String startTime = price.timeStart().toLocalTime().toString();
-                double pricePerKWh = price.sekPerKWh();
-                System.out.println(startTime + " - " + pricePerKWh + " sek/KWh");
+                System.out.println(startTime + " - " + formatPrice(price.sekPerKWh()));
+
             }
         }
     }
