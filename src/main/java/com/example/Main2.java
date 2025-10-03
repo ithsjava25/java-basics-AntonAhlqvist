@@ -13,7 +13,7 @@ public class Main2 {
 
     public static void main(String[] args) {
         Locale.setDefault(new Locale("sv", "SE"));
-        ElpriserAPI elpriserAPI = new ElpriserAPI();
+        ElpriserAPI api = new ElpriserAPI();
 
         UserInput input = checkArguments(args);
         if (input == null) return;
@@ -24,18 +24,12 @@ public class Main2 {
         LocalDate parsedDate = checkDate(input.date());
         if (parsedDate == null) return;
 
-        checkTimeAndPrintPrices(parsedDate, prisklass, input.zone(), elpriserAPI);
+        checkTimeAndPrintPrices(parsedDate, prisklass, input.zone(), api, args);
     }
 
     public static UserInput checkArguments(String[] args) {
         String zone = null;
         String date = null;
-
-        if (args.length == 0) {
-            System.out.println("Du måste skriva --zone SE1-4");
-            printHelpInfo();
-            return null;
-        }
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -43,27 +37,21 @@ public class Main2 {
                     printHelpInfo();
                     return null;
                 case "--zone":
-                    if (i + 1 < args.length) {
-                        zone = args[++i].toUpperCase();
-                    } else {
+                    if (i + 1 < args.length) zone = args[++i].toUpperCase();
+                    else {
                         System.out.println("Fel: Du måste ange en zon efter --zone");
                         printHelpInfo();
                         return null;
                     }
                     break;
                 case "--date":
-                    if (i + 1 < args.length) {
-                        date = args[++i];
-                    } else {
+                    if (i + 1 < args.length) date = args[++i];
+                    else {
                         System.out.println("Fel: Du måste ange ett datum efter --date");
                         printHelpInfo();
                         return null;
                     }
                     break;
-                default:
-                    System.out.println("Ogiltigt argument: " + args[i]);
-                    printHelpInfo();
-                    return null;
             }
         }
 
@@ -73,18 +61,16 @@ public class Main2 {
             return null;
         }
 
-        if (date == null) {
-            date = LocalDate.now().toString();
-        }
+        if (date == null) date = LocalDate.now().toString();
 
         return new UserInput(zone, date);
     }
 
     public static void printHelpInfo() {
         System.out.println("Usage: java -cp target/classes com.example.Main3 [options]");
-        System.out.println("Options:");
         System.out.println("--zone SE1|SE2|SE3|SE4   (required)");
         System.out.println("--date YYYY-MM-DD        (optional, defaults to current date)");
+        System.out.println("--sorted                 (optional, sort descending by price)");
         System.out.println("--help                   (optional, display this help message)");
     }
 
@@ -99,78 +85,126 @@ public class Main2 {
     }
 
     public static ElpriserAPI.Prisklass getPrisklass(String zone) {
-        switch (zone) {
-            case "SE1": return ElpriserAPI.Prisklass.SE1;
-            case "SE2": return ElpriserAPI.Prisklass.SE2;
-            case "SE3": return ElpriserAPI.Prisklass.SE3;
-            case "SE4": return ElpriserAPI.Prisklass.SE4;
-            default:
-                System.out.println("Ogiltig zon. Välj SE1, SE2, SE3 eller SE4.");
-                return null;
+        if (zone.equals("SE1")) return ElpriserAPI.Prisklass.SE1;
+        else if (zone.equals("SE2")) return ElpriserAPI.Prisklass.SE2;
+        else if (zone.equals("SE3")) return ElpriserAPI.Prisklass.SE3;
+        else if (zone.equals("SE4")) return ElpriserAPI.Prisklass.SE4;
+        else {
+            System.out.println("Ogiltig zon. Välj SE1, SE2, SE3 eller SE4.");
+            return null;
         }
     }
 
-    public static void checkTimeAndPrintPrices(LocalDate parsedDate, ElpriserAPI.Prisklass prisklass, String zone, ElpriserAPI api) {
+    public static void checkTimeAndPrintPrices(LocalDate parsedDate, ElpriserAPI.Prisklass prisklass,
+                                               String zone, ElpriserAPI api, String[] args) {
+        boolean sorted = Arrays.asList(args).contains("--sorted");
         LocalDate today = LocalDate.now();
 
-        if (parsedDate.equals(today)) {
-            int hourNow = LocalTime.now().getHour();
+        List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), prisklass);
+        List<ElpriserAPI.Elpris> tomorrowsPrices = api.getPriser(parsedDate.plusDays(1).toString(), prisklass);
 
-            if (hourNow < 13) {
-                System.out.println("Du får vänta tills efter 13 för att få morgondagens priser, skriver endast ut dagens priser:");
-                List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), prisklass);
-                printPriser(todaysPrices, zone, parsedDate.toString());
+        if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
+            System.out.println("Du får vänta tills efter 13 för att få morgondagens priser, skriver endast ut dagens priser:");
+            if (todaysPrices.size() == 96) {
+                todaysPrices = convertQuarterToHourly(todaysPrices);
+                printPrices(todaysPrices, zone, parsedDate.toString(), sorted);
+                printStatistics(todaysPrices, "Dagens");
             } else {
-                System.out.println("Efter 13: Hämtar dagens och morgondagens priser:");
-                List<ElpriserAPI.Elpris> allPrices = new ArrayList<>();
-                List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), prisklass);
-                List<ElpriserAPI.Elpris> tomorrowsPrices = api.getPriser(parsedDate.plusDays(1).toString(), prisklass);
-                allPrices.addAll(todaysPrices);
-                allPrices.addAll(tomorrowsPrices);
-
-                System.out.println("\nDagens priser:");
-                printPriser(todaysPrices, zone, parsedDate.toString());
-
-                System.out.println("\nMorgondagens priser:");
-                printPriser(tomorrowsPrices, zone, parsedDate.plusDays(1).toString());
+                System.out.println("Fel: Ogiltigt antal kvartaler. Beräkning av priser avbryts.");
             }
         } else {
-            List<ElpriserAPI.Elpris> priser = api.getPriser(parsedDate.toString(), prisklass);
-            printPriser(priser, zone, parsedDate.toString());
+
+            System.out.println("\nDagens priser:");
+            List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<>(todaysPrices);
+            if (todaysToPrint.size() == 96) todaysToPrint = convertQuarterToHourly(todaysToPrint);
+            printPrices(todaysToPrint, zone, parsedDate.toString(), sorted);
+            printStatistics(todaysToPrint, "Dagens");
+
+            System.out.println("\nMorgondagens priser:");
+            List<ElpriserAPI.Elpris> tomorrowsToPrint = new ArrayList<>(tomorrowsPrices);
+            if (tomorrowsToPrint.size() == 96) tomorrowsToPrint = convertQuarterToHourly(tomorrowsToPrint);
+            printPrices(tomorrowsToPrint, zone, parsedDate.plusDays(1).toString(), sorted);
+            printStatistics(tomorrowsToPrint, "Morgondagens");
         }
     }
 
-    public static void printPriser(List<ElpriserAPI.Elpris> priser, String zone, String date) {
+    public static List<ElpriserAPI.Elpris> convertQuarterToHourly(List<ElpriserAPI.Elpris> quarters) {
+        if (quarters.size() != 96) {
+            throw new IllegalArgumentException("Fel: Ogiltigt antal kvartaler, måste vara 96");
+        }
+
+        List<ElpriserAPI.Elpris> hourly = new ArrayList<>();
+
+        for (int i = 0; i < 24; i++) {
+            int startIndex = i * 4;
+            int endIndex = startIndex + 4;
+            double sum = 0.0;
+            ZonedDateTime startTime = quarters.get(startIndex).timeStart();
+            ZonedDateTime endTime = quarters.get(endIndex - 1).timeEnd();
+
+            for (int j = startIndex; j < endIndex; j++) {
+                sum += quarters.get(j).sekPerKWh();
+            }
+
+            double avg = sum / 4.0;
+
+            hourly.add(new ElpriserAPI.Elpris(avg, 0.0, 0.0, startTime, endTime));
+        }
+
+        return hourly;
+    }
+
+    public static void printPrices(List<ElpriserAPI.Elpris> priser, String zone, String date, boolean sorted) {
         if (priser == null || priser.isEmpty()) {
             System.out.println("Inga priser hittades för " + date + " i zon " + zone);
             return;
         }
 
-        System.out.println("\nTimpriser för zon " + zone + " den " + date + ":");
+        if (sorted) {
 
-        if (priser.size() == 96) { // kvartalshantering
-            for (int i = 0; i < 24; i++) {
-                int startIndex = i * 4;
-                int endIndex = startIndex + 4;
-                double sum = 0.0;
-
-                for (int j = startIndex; j < endIndex; j++) {
-                    sum += priser.get(j).sekPerKWh();
+            for (int i = 0; i < priser.size() - 1; i++) {
+                for (int j = 0; j < priser.size() - 1 - i; j++) {
+                    if (priser.get(j).sekPerKWh() < priser.get(j + 1).sekPerKWh()) {
+                        ElpriserAPI.Elpris temp = priser.get(j);
+                        priser.set(j, priser.get(j + 1));
+                        priser.set(j + 1, temp);
+                    }
                 }
-
-                double avg = sum / 4.0;
-                String hourRange = String.format("%02d-%02d", i, i + 1);
-                System.out.printf("%s: %.2f öre\n", hourRange, avg * 100);
-            }
-        } else {
-            for (ElpriserAPI.Elpris elpris : priser) {
-                String hourRange = String.format("%02d-%02d",
-                        elpris.timeStart().getHour(),
-                        elpris.timeEnd().getHour());
-                double orePris = elpris.sekPerKWh() * 100;
-                System.out.printf("%s: %.2f öre\n", hourRange, orePris);
             }
         }
+
+        for (int i = 0; i < priser.size(); i++) {
+            ElpriserAPI.Elpris elpris = priser.get(i);
+            String hourRange = String.format("%02d-%02d",
+                    elpris.timeStart().getHour(),
+                    elpris.timeEnd().getHour());
+            System.out.printf("%s: %.2f öre\n", hourRange, elpris.sekPerKWh() * 100);
+        }
+    }
+
+    public static void printStatistics(List<ElpriserAPI.Elpris> priser, String label) {
+        if (priser == null || priser.isEmpty()) return;
+
+        double sum = 0.0;
+        ElpriserAPI.Elpris min = priser.get(0);
+        ElpriserAPI.Elpris max = priser.get(0);
+
+        for (int i = 0; i < priser.size(); i++) {
+            ElpriserAPI.Elpris p = priser.get(i);
+            sum += p.sekPerKWh();
+            if (p.sekPerKWh() < min.sekPerKWh()) min = p;
+            if (p.sekPerKWh() > max.sekPerKWh()) max = p;
+        }
+
+        double avg = sum / priser.size();
+
+        String minRange = String.format("%02d-%02d", min.timeStart().getHour(), min.timeEnd().getHour());
+        String maxRange = String.format("%02d-%02d", max.timeStart().getHour(), max.timeEnd().getHour());
+
+        System.out.printf("%s statistik:\n", label);
+        System.out.printf("Högsta pris: %s %.2f öre\n", maxRange, max.sekPerKWh() * 100);
+        System.out.printf("Lägsta pris: %s %.2f öre\n", minRange, min.sekPerKWh() * 100);
+        System.out.printf("Medelpris: %.2f öre\n", avg * 100);
     }
 
     public record UserInput(String zone, String date) {}
