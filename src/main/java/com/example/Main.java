@@ -47,7 +47,7 @@ public class Main {
 
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--help")) {
-                printHelpInfo();
+
                 return null;
             } else if (args[i].equals("--zone")) {
                 if (i + 1 < args.length) {
@@ -55,7 +55,7 @@ public class Main {
                     i = i + 1;
                 } else {
                     System.out.println("Fel: Du måste ange en zon efter --zone");
-                    printHelpInfo();
+
                     return null;
                 }
             } else if (args[i].equals("--date")) {
@@ -64,7 +64,7 @@ public class Main {
                     i = i + 1;
                 } else {
                     System.out.println("Fel: Du måste ange ett datum efter --date");
-                    printHelpInfo();
+
                     return null;
                 }
             } else if (args[i].equals("--sorted")) {
@@ -92,7 +92,7 @@ public class Main {
 
         if (zone == null) {
             System.out.println("Du måste skriva --zone SE1-4");
-            printHelpInfo();
+
             return null;
         }
 
@@ -103,21 +103,13 @@ public class Main {
         return new UserInput(zone, date, sorted, chargingHours);
     }
 
-    public static void printHelpInfo() {
-        System.out.println("Usage: java -cp target/classes com.example.Main [options]");
-        System.out.println("--zone SE1|SE2|SE3|SE4   (required)");
-        System.out.println("--date YYYY-MM-DD        (optional, defaults to current date)");
-        System.out.println("--sorted                 (optional, sort descending by price)");
-        System.out.println("--charging 2h|4h|8h      (optional, find optimal charging window)");
-        System.out.println("--help                   (optional, display this help message)");
-    }
 
     public static LocalDate checkDate(String date) {
         try {
             return LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (DateTimeParseException e) {
             System.out.println("Fel datum. Använd: yyyy-MM-dd");
-            printHelpInfo();
+
             return null;
         }
     }
