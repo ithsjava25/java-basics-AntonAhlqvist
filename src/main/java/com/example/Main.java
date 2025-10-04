@@ -43,20 +43,20 @@ public class Main {
 
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--help")) {
-                printHelpInfo();
+
                 return null;
             } else if (args[i].equals("--zone")) {
                 if (i + 1 < args.length) zone = args[++i].toUpperCase();
                 else {
                     System.out.println("Fel: Du måste ange en zon efter --zone");
-                    printHelpInfo();
+
                     return null;
                 }
             } else if (args[i].equals("--date")) {
                 if (i + 1 < args.length) date = args[++i];
                 else {
                     System.out.println("Fel: Du måste ange ett datum efter --date");
-                    printHelpInfo();
+
                     return null;
                 }
             }
@@ -64,7 +64,7 @@ public class Main {
 
         if (zone == null) {
             System.out.println("Du måste skriva --zone SE1-4");
-            printHelpInfo();
+
             return null;
         }
 
@@ -73,21 +73,14 @@ public class Main {
         return new UserInput(zone, date);
     }
 
-    public static void printHelpInfo() {
-        System.out.println("Usage: java -cp target/classes com.example.Main [options]");
-        System.out.println("--zone SE1|SE2|SE3|SE4   (required)");
-        System.out.println("--date YYYY-MM-DD        (optional, defaults to current date)");
-        System.out.println("--sorted                 (optional, sort descending by price)");
-        System.out.println("--charging 2h|4h|8h      (optional, find optimal charging window)");
-        System.out.println("--help                   (optional, display this help message)");
-    }
+
 
     public static LocalDate checkDate(String date) {
         try {
             return LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE);
         } catch (DateTimeParseException e) {
             System.out.println("Fel datum. Använd: yyyy-MM-dd");
-            printHelpInfo();
+
             return null;
         }
     }
@@ -112,30 +105,81 @@ public class Main {
 
         if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
             System.out.println("Du får vänta tills efter 13 för att få morgondagens priser, skriver endast ut dagens priser:");
+
             if (todaysPrices.size() == 96) {
                 todaysPrices = convertQuarterToHourly(todaysPrices);
-                printPrices(todaysPrices, zone, parsedDate.toString(), sorted);
-                printStatistics(todaysPrices, "Dagens");
-            } else {
-                System.out.println("Fel: Ogiltigt antal kvartar. Beräkning av priser avbryts.");
             }
-        } else {
-            System.out.println("\nDagens priser:");
-            List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
-            if (todaysToPrint.size() == 96) todaysToPrint = convertQuarterToHourly(todaysToPrint);
-            printPrices(todaysToPrint, zone, parsedDate.toString(), sorted);
-            printStatistics(todaysToPrint, "Dagens");
 
-            System.out.println("\nMorgondagens priser:");
-            List<ElpriserAPI.Elpris> tomorrowsToPrint = new ArrayList<ElpriserAPI.Elpris>(tomorrowsPrices);
-            if (tomorrowsToPrint.size() == 96) tomorrowsToPrint = convertQuarterToHourly(tomorrowsToPrint);
-            printPrices(tomorrowsToPrint, zone, parsedDate.plusDays(1).toString(), sorted);
-            printStatistics(tomorrowsToPrint, "Morgondagens");
+            List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
+
+            if (sorted) {
+                for (int i = 0; i < todaysToPrint.size() - 1; i++) {
+                    for (int j = 0; j < todaysToPrint.size() - i - 1; j++) {
+                        if (todaysToPrint.get(j).sekPerKWh() < todaysToPrint.get(j + 1).sekPerKWh()) {
+                            ElpriserAPI.Elpris temp = todaysToPrint.get(j);
+                            todaysToPrint.set(j, todaysToPrint.get(j + 1));
+                            todaysToPrint.set(j + 1, temp);
+                        }
+                    }
+                }
+            }
+
+            printPrices(todaysToPrint, zone, parsedDate.toString(), false);
+            printStatistics(todaysPrices, "Dagens");
+
+            if (chargingEnabled && chargingHours > 0) {
+                calculateOptimalCharging(todaysPrices, chargingHours);
+            }
+            return;
         }
 
+        System.out.println("\nDagens priser:");
+        if (todaysPrices.size() == 96) {
+            todaysPrices = convertQuarterToHourly(todaysPrices);
+        }
+        List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
+        if (sorted) {
+            for (int i = 0; i < todaysToPrint.size() - 1; i++) {
+                for (int j = 0; j < todaysToPrint.size() - i - 1; j++) {
+                    if (todaysToPrint.get(j).sekPerKWh() < todaysToPrint.get(j + 1).sekPerKWh()) {
+                        ElpriserAPI.Elpris temp = todaysToPrint.get(j);
+                        todaysToPrint.set(j, todaysToPrint.get(j + 1));
+                        todaysToPrint.set(j + 1, temp);
+                    }
+                }
+            }
+        }
+        printPrices(todaysToPrint, zone, parsedDate.toString(), false);
+        printStatistics(todaysPrices, "Dagens");
+
+        System.out.println("\nMorgondagens priser:");
+        if (tomorrowsPrices.size() == 96) {
+            tomorrowsPrices = convertQuarterToHourly(tomorrowsPrices);
+        }
+        List<ElpriserAPI.Elpris> tomorrowsToPrint = new ArrayList<ElpriserAPI.Elpris>(tomorrowsPrices);
+        if (sorted) {
+            for (int i = 0; i < tomorrowsToPrint.size() - 1; i++) {
+                for (int j = 0; j < tomorrowsToPrint.size() - i - 1; j++) {
+                    if (tomorrowsToPrint.get(j).sekPerKWh() < tomorrowsToPrint.get(j + 1).sekPerKWh()) {
+                        ElpriserAPI.Elpris temp = tomorrowsToPrint.get(j);
+                        tomorrowsToPrint.set(j, tomorrowsToPrint.get(j + 1));
+                        tomorrowsToPrint.set(j + 1, temp);
+                    }
+                }
+            }
+        }
+        printPrices(tomorrowsToPrint, zone, parsedDate.plusDays(1).toString(), false);
+        printStatistics(tomorrowsPrices, "Morgondagens");
+
         if (chargingEnabled && chargingHours > 0) {
-            System.out.println("\nBeräknar optimalt laddningsfönster:");
-            calculateOptimalCharging(todaysPrices, chargingHours);
+            List<ElpriserAPI.Elpris> combined = new ArrayList<ElpriserAPI.Elpris>();
+            for (int i = 0; i < todaysPrices.size(); i++) {
+                combined.add(todaysPrices.get(i));
+            }
+            for (int i = 0; i < tomorrowsPrices.size(); i++) {
+                combined.add(tomorrowsPrices.get(i));
+            }
+            calculateOptimalCharging(combined, chargingHours);
         }
     }
 
@@ -170,15 +214,8 @@ public class Main {
         }
 
         if (sorted) {
-            for (int i = 0; i < priser.size() - 1; i++) {
-                for (int j = 0; j < priser.size() - 1 - i; j++) {
-                    if (priser.get(j).sekPerKWh() < priser.get(j + 1).sekPerKWh()) {
-                        ElpriserAPI.Elpris temp = priser.get(j);
-                        priser.set(j, priser.get(j + 1));
-                        priser.set(j + 1, temp);
-                    }
-                }
-            }
+
+            Collections.sort(priser, Comparator.comparingDouble(ElpriserAPI.Elpris::sekPerKWh).reversed());
         }
 
         Locale sv = new Locale("sv", "SE");
