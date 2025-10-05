@@ -95,21 +95,9 @@ public class Main {
         }
 
         if (zone == null) {
-            if (System.console() != null) {
-
-                Scanner scanner = new Scanner(System.in);
-                System.out.print("Välj zon (SE1-SE4): ");
-                zone = scanner.nextLine().trim().toUpperCase();
-                if (!zone.matches("SE[1-4]")) {
-                    System.out.println("Ogiltig zon (välj SE1-SE4)");
-                    return null;
-                }
-            } else {
-
-                System.out.println("Du måste skriva --zone (välj SE1-SE4)");
-                printHelpInfo();
-                return null;
-            }
+            System.out.println("Du måste skriva --zone (välj SE1-SE4)");
+            printHelpInfo();
+            return null;
         }
 
         if (date == null) {
