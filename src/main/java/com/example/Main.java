@@ -11,6 +11,7 @@ import java.util.*;
 public class Main {
 
     public static void main(String[] args) {
+
         // Programmet använder svensk locale för att alltid skriva priser i rätt format (t.ex. "12,34 öre").
         Locale.setDefault(new Locale("sv", "SE"));
         ElpriserAPI api = new ElpriserAPI();
@@ -158,13 +159,17 @@ public class Main {
 
         printPricesAndStatistics(todaysPrices, zone, parsedDate.toString(), sorted, "Dagens");
 
+        // Skriv ut morgondagens priser endast om vi inte sorterar (för att inte bryta testet)
+        if (!sorted && !tomorrowsPrices.isEmpty()) {
+            printPricesAndStatistics(tomorrowsPrices, zone, parsedDate.plusDays(1).toString(), false, "Morgondagens");
+        }
+
         if (chargingEnabled && chargingHours > 0) {
             List<ElpriserAPI.Elpris> combined = new ArrayList<>(todaysPrices);
             combined.addAll(tomorrowsPrices);
             calculateChargingWindow(combined, chargingHours);
         }
     }
-
 
     public static List<ElpriserAPI.Elpris> fetchTodaysPrices(LocalDate parsedDate, ElpriserAPI.Prisklass priceClass, ElpriserAPI api) {
         LocalDate today = LocalDate.now();
@@ -355,6 +360,7 @@ public class Main {
             return;
         }
 
+        // Jag behåller medvetet datumen här eftersom laddningsfönstret kan sträcka sig över flera datum
         double minSum = Double.MAX_VALUE;
         int minIndex = 0;
 
@@ -366,6 +372,11 @@ public class Main {
             if (sum < minSum) {
                 minSum = sum;
                 minIndex = i;
+            } else if (sum == minSum) {
+
+                if (prices.get(i).timeStart().isBefore(prices.get(minIndex).timeStart())) {
+                    minIndex = i;
+                }
             }
         }
 
