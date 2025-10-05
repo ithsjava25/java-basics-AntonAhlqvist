@@ -14,85 +14,98 @@ public class Main {
         Locale.setDefault(new Locale("sv", "SE"));
         ElpriserAPI api = new ElpriserAPI();
 
-        UserInput input = checkArguments(args);
+        UserInput input = parseUserInput(args);
         if (input == null) {
             return;
         }
 
-        ElpriserAPI.Prisklass prisklass = getPrisklass(input.zone());
-        if (prisklass == null) {
+        ElpriserAPI.Prisklass priceClass = getPriceClass(input.getZone());
+        if (priceClass == null) {
             return;
         }
 
-        LocalDate parsedDate = checkDate(input.date());
+        LocalDate parsedDate = parseDate(input.getDate());
         if (parsedDate == null) {
             return;
         }
 
-        int hours = input.chargingHours();
-        boolean chargingEnabled = false;
-        if (hours > 0) {
-            chargingEnabled = true;
-        }
+        int hours = input.getChargingHours();
+        boolean chargingEnabled = hours > 0;
 
-        checkTimeAndPrintPrices(parsedDate, prisklass, input.zone(), api, input.sorted(), chargingEnabled, hours);
+        processAndPrintPrices(parsedDate, priceClass, input.getZone(), api, input.isSorted(), chargingEnabled, hours);
     }
 
-    public static UserInput checkArguments(String[] args) {
+    public static UserInput parseUserInput(String[] args) {
         String zone = null;
         String date = null;
         boolean sorted = false;
         int chargingHours = 0;
 
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--help")) {
-                printHelpInfo();
-                return null;
-            } else if (args[i].equals("--zone")) {
-                if (i + 1 < args.length) {
-                    zone = args[i + 1].toUpperCase();
-                    i = i + 1;
-                } else {
-                    System.out.println("Fel: Du måste ange en zon efter --zone");
+            switch (args[i]) {
+                case "--help" -> {
                     printHelpInfo();
                     return null;
                 }
-            } else if (args[i].equals("--date")) {
-                if (i + 1 < args.length) {
-                    date = args[i + 1];
-                    i = i + 1;
-                } else {
-                    System.out.println("Fel: Du måste ange ett datum efter --date");
-                    printHelpInfo();
-                    return null;
-                }
-            } else if (args[i].equals("--sorted")) {
-                sorted = true;
-            } else if (args[i].equals("--charging")) {
-                if (i + 1 < args.length) {
-                    String ch = args[i + 1].toLowerCase();
-                    i = i + 1;
-                    if (ch.equals("2h")) {
-                        chargingHours = 2;
-                    } else if (ch.equals("4h")) {
-                        chargingHours = 4;
-                    } else if (ch.equals("8h")) {
-                        chargingHours = 8;
+                case "--zone" -> {
+                    if (i + 1 < args.length) {
+                        zone = args[i + 1].toUpperCase();
+                        i = i + 1;
                     } else {
-                        System.out.println("Ogiltig laddningstid, använd 2h, 4h eller 8h.");
+                        System.out.println("Du måste ange en zon efter --zone (välj SE1-SE4)");
+                        printHelpInfo();
                         return null;
                     }
-                } else {
-                    System.out.println("Du måste ange en tid efter --charging (2h,4h,8h)");
-                    return null;
+                }
+                case "--date" -> {
+                    if (i + 1 < args.length) {
+                        date = args[i + 1];
+                        i = i + 1;
+                    } else {
+                        System.out.println("Du måste ange ett datum efter --date (skriv enligt format YYYY-MM-HH)");
+                        printHelpInfo();
+                        return null;
+                    }
+                }
+                case "--sorted" -> sorted = true;
+                case "--charging" -> {
+                    if (i + 1 < args.length) {
+                        String ch = args[i + 1].toLowerCase();
+                        i = i + 1;
+                        if (ch.equals("2h")) {
+                            chargingHours = 2;
+                        } else if (ch.equals("4h")) {
+                            chargingHours = 4;
+                        } else if (ch.equals("8h")) {
+                            chargingHours = 8;
+                        } else {
+                            System.out.println("Ogiltig laddningstid (välj 2h, 4h eller 8h)");
+                            return null;
+                        }
+                    } else {
+                        System.out.println("Du måste ange laddningstid efter --charging (välj 2h, 4h eller 8h)");
+                        return null;
+                    }
                 }
             }
         }
 
         if (zone == null) {
-            System.out.println("Du måste skriva --zone SE1-4");
-            printHelpInfo();
-            return null;
+            if (System.console() != null) {
+
+                Scanner scanner = new Scanner(System.in);
+                System.out.print("Välj zon (SE1-SE4): ");
+                zone = scanner.nextLine().trim().toUpperCase();
+                if (!zone.matches("SE[1-4]")) {
+                    System.out.println("Ogiltig zon (välj SE1-SE4)");
+                    return null;
+                }
+            } else {
+
+                System.out.println("Du måste skriva --zone (välj SE1-SE4)");
+                printHelpInfo();
+                return null;
+            }
         }
 
         if (date == null) {
@@ -104,6 +117,9 @@ public class Main {
 
     public static void printHelpInfo() {
         System.out.println("Usage: java -cp target/classes com.example.Main [options]");
+        System.out.println();
+        System.out.println("=== Hjälp ===");
+        System.out.println();
         System.out.println("--zone SE1|SE2|SE3|SE4   (obligatoriskt)");
         System.out.println("--date YYYY-MM-DD        (valfritt, använder dagens datum om inget annat anges)");
         System.out.println("--sorted                 (valfritt, sorterar efter pris)");
@@ -111,103 +127,118 @@ public class Main {
         System.out.println("--help                   (visar denna hjälptext)");
     }
 
-    public static LocalDate checkDate(String date) {
+    public static LocalDate parseDate(String date) {
         try {
-
             return LocalDate.parse(date);
         } catch (DateTimeParseException e) {
-            System.out.println("Fel datum. Använd: yyyy-MM-dd");
+            System.out.println("Ogiltigt datum (skriv enligt format YYYY-MM-HH)");
             printHelpInfo();
             return null;
         }
     }
 
-    public static ElpriserAPI.Prisklass getPrisklass(String zone) {
-        if (zone.equals("SE1")) {
-            return ElpriserAPI.Prisklass.SE1;
-        } else if (zone.equals("SE2")) {
-            return ElpriserAPI.Prisklass.SE2;
-        } else if (zone.equals("SE3")) {
-            return ElpriserAPI.Prisklass.SE3;
-        } else if (zone.equals("SE4")) {
-            return ElpriserAPI.Prisklass.SE4;
-        } else {
-            System.out.println("Ogiltig zon. Välj SE1, SE2, SE3 eller SE4.");
-            return null;
+    public static ElpriserAPI.Prisklass getPriceClass(String zone) {
+        switch (zone) {
+            case "SE1" -> {
+                return ElpriserAPI.Prisklass.SE1;
+            }
+            case "SE2" -> {
+                return ElpriserAPI.Prisklass.SE2;
+            }
+            case "SE3" -> {
+                return ElpriserAPI.Prisklass.SE3;
+            }
+            case "SE4" -> {
+                return ElpriserAPI.Prisklass.SE4;
+            }
+            default -> {
+                System.out.println("Ogiltig zon (välj SE1-SE4)");
+                return null;
+            }
         }
     }
 
-    public static void checkTimeAndPrintPrices(LocalDate parsedDate, ElpriserAPI.Prisklass prisklass,
-                                               String zone, ElpriserAPI api,
-                                               boolean sorted, boolean chargingEnabled, int chargingHours) {
-        LocalDate today = LocalDate.now();
+    public static void processAndPrintPrices(LocalDate parsedDate, ElpriserAPI.Prisklass priceClass,
+                                             String zone, ElpriserAPI api,
+                                             boolean sorted, boolean chargingEnabled, int chargingHours) {
 
-        List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), prisklass);
-        List<ElpriserAPI.Elpris> tomorrowsPrices = api.getPriser(parsedDate.plusDays(1).toString(), prisklass);
+        List<ElpriserAPI.Elpris> todaysPrices = fetchTodaysPrices(parsedDate, priceClass, api);
+        List<ElpriserAPI.Elpris> tomorrowsPrices = fetchTomorrowsPrices(parsedDate, priceClass, api);
 
-        if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
-            System.out.println("Du får vänta tills efter 13 för att få morgondagens priser, skriver endast ut dagens priser:");
-
-            if (todaysPrices.size() == 96) {
-                todaysPrices = convertQuarterToHourly(todaysPrices);
-            }
-
-            List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<>(todaysPrices);
-
-            if (sorted) {
-                sortPricesAscending(todaysToPrint);
-            }
-
-            printPrices(todaysToPrint, zone, parsedDate.toString(), sorted);
-            printStatistics(todaysPrices, "Dagens");
-
-            if (chargingEnabled && chargingHours > 0) {
-                calculateOptimalCharging(todaysPrices, chargingHours);
-            }
-            return;
-        }
-
-        System.out.println("\nDagens priser:");
-        if (todaysPrices.size() == 96) {
-            todaysPrices = convertQuarterToHourly(todaysPrices);
-        }
-        List<ElpriserAPI.Elpris> todaysToPrint = new ArrayList<>(todaysPrices);
-
-        if (sorted) {
-            sortPricesAscending(todaysToPrint);
-        }
-
-        printPrices(todaysToPrint, zone, parsedDate.toString(), sorted);
-        printStatistics(todaysPrices, "Dagens");
+        printPricesAndStatistics(todaysPrices, zone, parsedDate.toString(), sorted, "Dagens");
 
         if (!sorted && !tomorrowsPrices.isEmpty()) {
-            System.out.println("\nMorgondagens priser:");
-            if (tomorrowsPrices.size() == 96) {
-                tomorrowsPrices = convertQuarterToHourly(tomorrowsPrices);
-            }
-            List<ElpriserAPI.Elpris> tomorrowsToPrint = new ArrayList<>(tomorrowsPrices);
-
-            printPrices(tomorrowsToPrint, zone, parsedDate.plusDays(1).toString(), false);
-            printStatistics(tomorrowsPrices, "Morgondagens");
+            printPricesAndStatistics(tomorrowsPrices, zone, parsedDate.plusDays(1).toString(), false, "Morgondagens");
         }
 
         if (chargingEnabled && chargingHours > 0) {
-            List<ElpriserAPI.Elpris> combined = new ArrayList<>(todaysPrices);
+            List<ElpriserAPI.Elpris> combined = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
             combined.addAll(tomorrowsPrices);
-            calculateOptimalCharging(combined, chargingHours);
+            calculateChargingWindow(combined, chargingHours);
         }
     }
 
-    public static void sortPricesAscending(List<ElpriserAPI.Elpris> priser) {
-        if (priser == null || priser.size() < 2) {
+    public static List<ElpriserAPI.Elpris> fetchTodaysPrices(LocalDate parsedDate, ElpriserAPI.Prisklass priceClass, ElpriserAPI api) {
+        LocalDate today = LocalDate.now();
+        List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), priceClass);
+
+        if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
+            System.out.println("Du får vänta tills efter kl 13 för att få morgondagens priser, skriver endast ut dagens priser:");
+            if (todaysPrices.size() == 96) {
+                todaysPrices = convertQuarterlyToHourlyPrices(todaysPrices);
+            }
+            return todaysPrices;
+        }
+
+        if (todaysPrices.size() == 96) {
+            todaysPrices = convertQuarterlyToHourlyPrices(todaysPrices);
+        }
+        return todaysPrices;
+    }
+
+    public static List<ElpriserAPI.Elpris> fetchTomorrowsPrices(LocalDate parsedDate, ElpriserAPI.Prisklass priceClass, ElpriserAPI api) {
+        List<ElpriserAPI.Elpris> tomorrowsPrices = api.getPriser(parsedDate.plusDays(1).toString(), priceClass);
+
+        if (tomorrowsPrices.size() == 96) {
+            tomorrowsPrices = convertQuarterlyToHourlyPrices(tomorrowsPrices);
+        }
+        return tomorrowsPrices;
+    }
+
+    public static void printPricesAndStatistics(List<ElpriserAPI.Elpris> prices, String zone, String date, boolean sorted, String label) {
+        if (prices == null || prices.isEmpty()) {
+            System.out.println("Inga priser (" + label.toLowerCase() + ") för " + date + " i zon " + zone + " – ingen data.");
             return;
         }
-        priser.sort(Comparator.comparing(ElpriserAPI.Elpris::sekPerKWh));
+
+        System.out.println();
+        System.out.println("=== " + label + " priser (" + date + ", zon " + zone + ") ===");
+
+        List<ElpriserAPI.Elpris> toPrint = new ArrayList<>(prices);
+
+        if (sorted) {
+            sortPricesAscending(toPrint);
+        }
+
+        printPriceList(toPrint, zone, date, sorted);
+        System.out.println(); // luft före statistik
+        printPriceStatistics(prices, label);
     }
 
-    public static List<ElpriserAPI.Elpris> convertQuarterToHourly(List<ElpriserAPI.Elpris> quarters) {
+    public static void calculateChargingWindow(List<ElpriserAPI.Elpris> prices, int hours) {
+        calculateOptimalChargingWindow(prices, hours);
+    }
+
+    public static void sortPricesAscending(List<ElpriserAPI.Elpris> prices) {
+        if (prices == null || prices.size() < 2) {
+            return;
+        }
+        prices.sort(Comparator.comparing(ElpriserAPI.Elpris::sekPerKWh));
+    }
+
+    public static List<ElpriserAPI.Elpris> convertQuarterlyToHourlyPrices(List<ElpriserAPI.Elpris> quarters) {
         if (quarters.size() != 96) {
-            throw new IllegalArgumentException("Fel: Ogiltigt antal kvartar, måste vara 96");
+            throw new IllegalArgumentException("Ogiltigt antal kvartar (måste vara 96)");
         }
 
         List<ElpriserAPI.Elpris> hourly = new ArrayList<ElpriserAPI.Elpris>();
@@ -229,21 +260,23 @@ public class Main {
         return hourly;
     }
 
-    public static void printPrices(List<ElpriserAPI.Elpris> priser, String zone, String date, boolean sorted) {
-        if (priser == null || priser.isEmpty()) {
+    public static void printPriceList(List<ElpriserAPI.Elpris> prices, String zone, String date, boolean sorted) {
+        if (prices == null || prices.isEmpty()) {
             System.out.println("Inga priser hittades för " + date + " i zon " + zone);
             return;
         }
 
         if (sorted) {
-            System.out.println("Alla priser sorterade från lägsta till högsta pris:");
+            System.out.println("(Priserna är sorterade från det lägsta till det högsta)");
+            System.out.println();
         } else {
-            System.out.println("Alla priser i tidsordning:");
+            System.out.println("(Priserna är sorterade i tidsordning)");
+            System.out.println();
         }
 
         Locale sv = new Locale("sv", "SE");
-        for (int i = 0; i < priser.size(); i++) {
-            ElpriserAPI.Elpris elpris = priser.get(i);
+        for (int i = 0; i < prices.size(); i++) {
+            ElpriserAPI.Elpris elpris = prices.get(i);
             int startHour = elpris.timeStart().getHour();
             int endHour = elpris.timeEnd().getHour();
 
@@ -264,30 +297,28 @@ public class Main {
         }
     }
 
-    public static void printStatistics(List<ElpriserAPI.Elpris> priser, String label) {
-        if (priser == null || priser.isEmpty()) {
+    public static void printPriceStatistics(List<ElpriserAPI.Elpris> prices, String label) {
+        if (prices == null || prices.isEmpty()) {
             return;
         }
 
         double sum = 0.0;
-        ElpriserAPI.Elpris min = priser.getFirst();
-        ElpriserAPI.Elpris max = priser.getFirst();
+        ElpriserAPI.Elpris min = prices.getFirst();
+        ElpriserAPI.Elpris max = prices.getFirst();
 
-        for (int i = 0; i < priser.size(); i++) {
-            ElpriserAPI.Elpris p = priser.get(i);
+        for (int i = 0; i < prices.size(); i++) {
+            ElpriserAPI.Elpris p = prices.get(i);
             double ore = p.sekPerKWh() * 100;
             sum = sum + ore;
 
             if (p.sekPerKWh() < min.sekPerKWh()) {
                 min = p;
-            } else {
-                if (p.sekPerKWh() > max.sekPerKWh()) {
-                    max = p;
-                }
+            } else if (p.sekPerKWh() > max.sekPerKWh()) {
+                max = p;
             }
         }
 
-        double avg = sum / priser.size();
+        double avg = sum / prices.size();
 
         int minStart = min.timeStart().getHour();
         int minEnd = min.timeEnd().getHour();
@@ -319,17 +350,18 @@ public class Main {
         }
 
         Locale sv = new Locale("sv", "SE");
-        System.out.println(label + " statistik:");
+        System.out.println("=== " + label + " Statistik ===");
+        System.out.println();
         System.out.println("Högsta pris: " + maxRange + " " + String.format(sv, "%.2f", max.sekPerKWh() * 100) + " öre");
         System.out.println("Lägsta pris: " + minRange + " " + String.format(sv, "%.2f", min.sekPerKWh() * 100) + " öre");
         System.out.println("Medelpris: " + String.format(sv, "%.2f", avg) + " öre");
     }
 
-    public static void calculateOptimalCharging(List<ElpriserAPI.Elpris> priser, int hours) {
-        if (priser == null || priser.isEmpty()) {
+    public static void calculateOptimalChargingWindow(List<ElpriserAPI.Elpris> prices, int hours) {
+        if (prices == null || prices.isEmpty()) {
             return;
         }
-        if (priser.size() < hours) {
+        if (prices.size() < hours) {
             System.out.println("Påbörja laddning kunde inte beräknas – inte tillräckligt med priser.");
             return;
         }
@@ -337,10 +369,10 @@ public class Main {
         double minSum = Double.MAX_VALUE;
         int minIndex = 0;
 
-        for (int i = 0; i <= priser.size() - hours; i++) {
+        for (int i = 0; i <= prices.size() - hours; i++) {
             double sum = 0;
             for (int j = 0; j < hours; j++) {
-                sum = sum + priser.get(i + j).sekPerKWh();
+                sum = sum + prices.get(i + j).sekPerKWh();
             }
             if (sum < minSum) {
                 minSum = sum;
@@ -348,14 +380,15 @@ public class Main {
             }
         }
 
-        System.out.println("Beräknar optimalt laddningsfönster:");
+        System.out.println();
+        System.out.println("=== Optimalt laddningsfönster ===");
         System.out.println("Påbörja laddning för " + hours + " timmar:");
 
         Locale sv = new Locale("sv", "SE");
         double totalPrice = 0;
 
         for (int i = minIndex; i < minIndex + hours; i++) {
-            ElpriserAPI.Elpris p = priser.get(i);
+            ElpriserAPI.Elpris p = prices.get(i);
 
             String date = p.timeStart().toLocalDate().toString();
             int startHour = p.timeStart().getHour();
@@ -398,10 +431,10 @@ public class Main {
     }
 
     public static class UserInput {
-        public String zone;
-        public String date;
-        public boolean sorted;
-        public int chargingHours;
+        private String zone;
+        private String date;
+        private boolean sorted;
+        private int chargingHours;
 
         public UserInput(String zone, String date, boolean sorted, int chargingHours) {
             this.zone = zone;
@@ -410,19 +443,19 @@ public class Main {
             this.chargingHours = chargingHours;
         }
 
-        public String zone() {
+        public String getZone() {
             return this.zone;
         }
 
-        public String date() {
+        public String getDate() {
             return this.date;
         }
 
-        public boolean sorted() {
+        public boolean isSorted() {
             return this.sorted;
         }
 
-        public int chargingHours() {
+        public int getChargingHours() {
             return this.chargingHours;
         }
     }
