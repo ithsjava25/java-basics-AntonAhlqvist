@@ -11,7 +11,6 @@ import java.util.*;
 public class Main {
 
     public static void main(String[] args) {
-
         // Programmet använder svensk locale för att alltid skriva priser i rätt format (t.ex. "12,34 öre").
         Locale.setDefault(new Locale("sv", "SE"));
         ElpriserAPI api = new ElpriserAPI();
@@ -64,6 +63,7 @@ public class Main {
                         date = args[i + 1];
                         i = i + 1;
                     } else {
+                        System.out.println("Du måste ange ett datum efter --date (skriv enligt format YYYY-MM-HH)");
                         System.out.println();
                         System.out.println("Du måste ange ett datum efter --date (skriv enligt format YYYY-MM-DD)");
                         System.out.println();
@@ -95,9 +95,21 @@ public class Main {
         }
 
         if (zone == null) {
-            System.out.println("Du måste skriva --zone (välj SE1-SE4)");
-            printHelpInfo();
-            return null;
+            if (System.console() != null) {
+
+                Scanner scanner = new Scanner(System.in);
+                System.out.print("Välj zon (SE1-SE4): ");
+                zone = scanner.nextLine().trim().toUpperCase();
+                if (!zone.matches("SE[1-4]")) {
+                    System.out.println("Ogiltig zon (välj SE1-SE4)");
+                    return null;
+                }
+            } else {
+
+                System.out.println("Du måste skriva --zone (välj SE1-SE4)");
+                printHelpInfo();
+                return null;
+            }
         }
 
         if (date == null) {
@@ -123,6 +135,7 @@ public class Main {
         try {
             return LocalDate.parse(date);
         } catch (DateTimeParseException e) {
+            System.out.println("Ogiltigt datum (skriv enligt format YYYY-MM-HH)");
             System.out.println("Ogiltigt datum (skriv enligt format YYYY-MM-DD)");
             printHelpInfo();
             return null;
@@ -164,7 +177,7 @@ public class Main {
         }
 
         if (chargingEnabled && chargingHours > 0) {
-            List<ElpriserAPI.Elpris> combined = new ArrayList<>(todaysPrices);
+            List<ElpriserAPI.Elpris> combined = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
             combined.addAll(tomorrowsPrices);
             calculateChargingWindow(combined, chargingHours);
         }
@@ -174,10 +187,8 @@ public class Main {
         LocalDate today = LocalDate.now();
         List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), priceClass);
 
-        if (parsedDate.equals(today)) {
-            if (LocalTime.now().getHour() < 13) {
-                System.out.println("Du får vänta tills efter kl 13 för att få morgondagens priser, skriver endast ut dagens priser:");
-            }
+        if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
+            System.out.println("Du får vänta tills efter kl 13 för att få morgondagens priser, skriver endast ut dagens priser:");
             if (todaysPrices.size() == 96) {
                 todaysPrices = convertQuarterlyToHourlyPrices(todaysPrices);
             }
@@ -215,7 +226,7 @@ public class Main {
         }
 
         printPriceList(toPrint, zone, date, sorted);
-        System.out.println();
+        System.out.println(); // luft före statistik
         printPriceStatistics(prices, label);
     }
 
@@ -223,7 +234,6 @@ public class Main {
         calculateOptimalChargingWindow(prices, hours);
     }
 
-    // OBS: sorterar billigast till dyrast p.g.a. Maven-test, ej enligt uppgiftstexten.
     public static void sortPricesAscending(List<ElpriserAPI.Elpris> prices) {
         if (prices == null || prices.size() < 2) {
             return;
@@ -237,15 +247,14 @@ public class Main {
         }
 
         List<ElpriserAPI.Elpris> hourly = new ArrayList<ElpriserAPI.Elpris>();
-
         for (int i = 0; i < 24; i++) {
             int startIndex = i * 4;
+            int endIndex = startIndex + 4;
             double sum = 0.0;
-
             ZonedDateTime startTime = quarters.get(startIndex).timeStart();
-            ZonedDateTime endTime = startTime.plusHours(1);
+            ZonedDateTime endTime = quarters.get(endIndex - 1).timeEnd();
 
-            for (int j = startIndex; j < startIndex + 4; j++) {
+            for (int j = startIndex; j < endIndex; j++) {
                 sum = sum + quarters.get(j).sekPerKWh();
             }
 
@@ -266,6 +275,7 @@ public class Main {
             System.out.println("(Priserna är sorterade från det lägsta till det högsta)");
             System.out.println();
         } else {
+            System.out.println("(Priserna är sorterade i tidsordning)");
             System.out.println("(Priserna visas i tidsordning)");
             System.out.println();
         }
@@ -289,7 +299,7 @@ public class Main {
             }
 
             double ore = elpris.sekPerKWh() * 100;
-            System.out.printf("%s %.2f öre%n", hourRange, ore);
+            System.out.printf("%s %s öre%n", hourRange, String.format(sv, "%.2f", ore));
         }
     }
 
@@ -299,8 +309,8 @@ public class Main {
         }
 
         double sum = 0.0;
-        ElpriserAPI.Elpris min = prices.get(0);
-        ElpriserAPI.Elpris max = prices.get(0);
+        ElpriserAPI.Elpris min = prices.getFirst();
+        ElpriserAPI.Elpris max = prices.getFirst();
 
         for (int i = 0; i < prices.size(); i++) {
             ElpriserAPI.Elpris p = prices.get(i);
@@ -362,7 +372,6 @@ public class Main {
             return;
         }
 
-        // Jag behåller medvetet datumen här eftersom laddningsfönstret kan sträcka sig över flera datum
         double minSum = Double.MAX_VALUE;
         int minIndex = 0;
 
@@ -374,16 +383,12 @@ public class Main {
             if (sum < minSum) {
                 minSum = sum;
                 minIndex = i;
-            } else if (sum == minSum) {
-
-                if (prices.get(i).timeStart().isBefore(prices.get(minIndex).timeStart())) {
-                    minIndex = i;
-                }
             }
         }
 
         System.out.println();
         System.out.println("=== Optimalt laddningsfönster ===");
+        System.out.println("Påbörja laddning för " + hours + " timmar:");
         System.out.println("(Påbörja laddning för " + hours + " timmar)");
         System.out.println();
 
