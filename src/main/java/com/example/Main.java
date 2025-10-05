@@ -174,8 +174,10 @@ public class Main {
         LocalDate today = LocalDate.now();
         List<ElpriserAPI.Elpris> todaysPrices = api.getPriser(parsedDate.toString(), priceClass);
 
-        if (parsedDate.equals(today) && LocalTime.now().getHour() < 13) {
-            System.out.println("Du får vänta tills efter kl 13 för att få morgondagens priser, skriver endast ut dagens priser:");
+        if (parsedDate.equals(today)) {
+            if (LocalTime.now().getHour() < 13) {
+                System.out.println("Du får vänta tills efter kl 13 för att få morgondagens priser, skriver endast ut dagens priser:");
+            }
             if (todaysPrices.size() == 96) {
                 todaysPrices = convertQuarterlyToHourlyPrices(todaysPrices);
             }
@@ -287,7 +289,7 @@ public class Main {
             }
 
             double ore = elpris.sekPerKWh() * 100;
-            System.out.printf("%s %s öre%n", hourRange, String.format(sv, "%.2f", ore));
+            System.out.printf("%s %.2f öre%n", hourRange, ore);
         }
     }
 
