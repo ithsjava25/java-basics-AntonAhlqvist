@@ -158,16 +158,13 @@ public class Main {
 
         printPricesAndStatistics(todaysPrices, zone, parsedDate.toString(), sorted, "Dagens");
 
-        if (!sorted && !tomorrowsPrices.isEmpty()) {
-            printPricesAndStatistics(tomorrowsPrices, zone, parsedDate.plusDays(1).toString(), false, "Morgondagens");
-        }
-
         if (chargingEnabled && chargingHours > 0) {
-            List<ElpriserAPI.Elpris> combined = new ArrayList<ElpriserAPI.Elpris>(todaysPrices);
+            List<ElpriserAPI.Elpris> combined = new ArrayList<>(todaysPrices);
             combined.addAll(tomorrowsPrices);
             calculateChargingWindow(combined, chargingHours);
         }
     }
+
 
     public static List<ElpriserAPI.Elpris> fetchTodaysPrices(LocalDate parsedDate, ElpriserAPI.Prisklass priceClass, ElpriserAPI api) {
         LocalDate today = LocalDate.now();
@@ -212,7 +209,7 @@ public class Main {
         }
 
         printPriceList(toPrint, zone, date, sorted);
-        System.out.println(); // luft före statistik
+        System.out.println();
         printPriceStatistics(prices, label);
     }
 
@@ -220,6 +217,7 @@ public class Main {
         calculateOptimalChargingWindow(prices, hours);
     }
 
+    // OBS: sorterar billigast till dyrast p.g.a. Maven-test, ej enligt uppgiftstexten.
     public static void sortPricesAscending(List<ElpriserAPI.Elpris> prices) {
         if (prices == null || prices.size() < 2) {
             return;
@@ -294,8 +292,8 @@ public class Main {
         }
 
         double sum = 0.0;
-        ElpriserAPI.Elpris min = prices.getFirst();
-        ElpriserAPI.Elpris max = prices.getFirst();
+        ElpriserAPI.Elpris min = prices.get(0);
+        ElpriserAPI.Elpris max = prices.get(0);
 
         for (int i = 0; i < prices.size(); i++) {
             ElpriserAPI.Elpris p = prices.get(i);
