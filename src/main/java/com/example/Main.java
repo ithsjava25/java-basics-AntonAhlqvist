@@ -159,7 +159,6 @@ public class Main {
 
         printPricesAndStatistics(todaysPrices, zone, parsedDate.toString(), sorted, "Dagens");
 
-        // Skriv ut morgondagens priser endast om vi inte sorterar (för att inte bryta testet)
         if (!sorted && !tomorrowsPrices.isEmpty()) {
             printPricesAndStatistics(tomorrowsPrices, zone, parsedDate.plusDays(1).toString(), false, "Morgondagens");
         }
@@ -236,14 +235,15 @@ public class Main {
         }
 
         List<ElpriserAPI.Elpris> hourly = new ArrayList<ElpriserAPI.Elpris>();
+
         for (int i = 0; i < 24; i++) {
             int startIndex = i * 4;
-            int endIndex = startIndex + 4;
             double sum = 0.0;
-            ZonedDateTime startTime = quarters.get(startIndex).timeStart();
-            ZonedDateTime endTime = quarters.get(endIndex - 1).timeEnd();
 
-            for (int j = startIndex; j < endIndex; j++) {
+            ZonedDateTime startTime = quarters.get(startIndex).timeStart();
+            ZonedDateTime endTime = startTime.plusHours(1);
+
+            for (int j = startIndex; j < startIndex + 4; j++) {
                 sum = sum + quarters.get(j).sekPerKWh();
             }
 
