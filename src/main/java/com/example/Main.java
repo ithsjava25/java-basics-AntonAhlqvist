@@ -11,6 +11,7 @@ import java.util.*;
 public class Main {
 
     public static void main(String[] args) {
+        // Programmet använder svensk locale för att alltid skriva priser i rätt format (t.ex. "12,34 öre").
         Locale.setDefault(new Locale("sv", "SE"));
         ElpriserAPI api = new ElpriserAPI();
 
@@ -62,7 +63,9 @@ public class Main {
                         date = args[i + 1];
                         i = i + 1;
                     } else {
-                        System.out.println("Du måste ange ett datum efter --date (skriv enligt format YYYY-MM-HH)");
+                        System.out.println();
+                        System.out.println("Du måste ange ett datum efter --date (skriv enligt format YYYY-MM-DD)");
+                        System.out.println();
                         printHelpInfo();
                         return null;
                     }
@@ -131,7 +134,7 @@ public class Main {
         try {
             return LocalDate.parse(date);
         } catch (DateTimeParseException e) {
-            System.out.println("Ogiltigt datum (skriv enligt format YYYY-MM-HH)");
+            System.out.println("Ogiltigt datum (skriv enligt format YYYY-MM-DD)");
             printHelpInfo();
             return null;
         }
@@ -270,7 +273,7 @@ public class Main {
             System.out.println("(Priserna är sorterade från det lägsta till det högsta)");
             System.out.println();
         } else {
-            System.out.println("(Priserna är sorterade i tidsordning)");
+            System.out.println("(Priserna visas i tidsordning)");
             System.out.println();
         }
 
@@ -382,7 +385,8 @@ public class Main {
 
         System.out.println();
         System.out.println("=== Optimalt laddningsfönster ===");
-        System.out.println("Påbörja laddning för " + hours + " timmar:");
+        System.out.println("(Påbörja laddning för " + hours + " timmar)");
+        System.out.println();
 
         Locale sv = new Locale("sv", "SE");
         double totalPrice = 0;
